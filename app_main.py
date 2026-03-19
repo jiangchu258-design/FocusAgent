@@ -19,6 +19,9 @@ if "chat_memory" not in st.session_state:
     st.session_state.chat_memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "你好，我是你的严格伴学 AI。输入“点评”查看你的学情分析，或者向我询问你笔记库中的知识点！"}]
+# 🚀 新增：临时存放今日任务
+if "temp_tasks" not in st.session_state:
+    st.session_state.temp_tasks = []
 
 # ========== 侧边栏：UI导航与统计 ==========
 with st.sidebar:
@@ -40,7 +43,6 @@ col1, col2 = st.columns([1, 2])
 with col1:
     st.subheader("⏱️ 专注计时器")
     
-    # 1. 绝不重名的回调函数
     def start_focus_timer():
         st.session_state.start_time = time.time()
         st.session_state.timer_running = True
@@ -52,96 +54,98 @@ with col1:
             st.session_state.timer_running = False
             st.session_state.start_time = None
 
-    # 2. 必须先渲染按钮
     btn_col1, btn_col2 = st.columns(2)
     is_running = st.session_state.get('timer_running', False)
     btn_col1.button("▶️ 开始专注", disabled=is_running, on_click=start_focus_timer, use_container_width=True)
     btn_col2.button("⏹ 结束专注", disabled=not is_running, on_click=stop_focus_timer, use_container_width=True)
 
-    # 3. 渲染高颜值动态时钟
     timer_display = st.empty() 
     if is_running:
         elapsed = int(time.time() - st.session_state.start_time)
         mins, secs = divmod(elapsed, 60)
-        # 💡 这里换成了渐变青色调，更有利于专注
         timer_display.markdown(f"""
-            <div style="
-                text-align: center; 
-                padding: 30px; 
-                background: linear-gradient(135deg, #e0f2f1 0%, #e1f5fe 100%);
-                border-radius: 20px; 
-                margin-top: 15px;
-                box-shadow: 0 10px 20px rgba(0,0,0,0.05);
-                border: 1px solid rgba(255,255,255,0.5);
-            ">
-                <h1 style="color: #006064; font-size: 60px; margin: 0; font-family: 'Helvetica Neue', sans-serif; letter-spacing: 2px;">
-                    {mins:02d}:{secs:02d}
-                </h1>
-                <p style="color: #00838f; margin-top: 10px; font-size: 16px; letter-spacing: 1px; opacity: 0.8;">
-                    ✨ 沉浸在知识的海洋中...
-                </p>
+            <div style="text-align: center; padding: 30px; background: linear-gradient(135deg, #e0f2f1 0%, #e1f5fe 100%); border-radius: 20px; margin-top: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
+                <h1 style="color: #006064; font-size: 60px; margin: 0;">{mins:02d}:{secs:02d}</h1>
+                <p style="color: #00838f; margin-top: 10px;">✨ 沉浸在知识的海洋中...</p>
             </div>
         """, unsafe_allow_html=True)
         time.sleep(1)
         st.rerun()
     else:
-        # 休息状态：更淡的灰色调
         timer_display.markdown("""
-            <div style="
-                text-align: center; 
-                padding: 30px; 
-                background-color: #f8f9fa; 
-                border-radius: 20px; 
-                margin-top: 15px;
-                border: 1px solid #eee;
-            ">
-                <h1 style="color: #adb5bd; font-size: 60px; margin: 0; font-family: 'Helvetica Neue', sans-serif;">00:00</h1>
-                <p style="color: #adb5bd; margin-top: 10px; font-size: 16px;">☕ 蓄势待发，准备开启专注</p>
+            <div style="text-align: center; padding: 30px; background-color: #f8f9fa; border-radius: 20px; margin-top: 15px;">
+                <h1 style="color: #adb5bd; font-size: 60px; margin: 0;">00:00</h1>
+                <p style="color: #adb5bd; margin-top: 10px;">☕ 蓄势待发，准备开启专注</p>
             </div>
         """, unsafe_allow_html=True)
 
     st.divider()
+
+    # 🚀 模块 1：自定义任务打卡
+    st.subheader("✅ 今日任务清单")
+    t_input_col, t_btn_col = st.columns([3, 1])
+    new_task = t_input_col.text_input("输入新任务", placeholder="比如：写 RAG 综述", label_visibility="collapsed")
+    if t_btn_col.button("➕ 添加", use_container_width=True):
+        if new_task:
+            st.session_state.temp_tasks.append({"desc": new_task, "done": False})
+            st.rerun()
+
+    # 渲染任务列表
+    updated_tasks = []
+    for i, task in enumerate(st.session_state.temp_tasks):
+        # 任务勾选框
+        is_done = st.checkbox(task["desc"], value=task["done"], key=f"task_{i}")
+        updated_tasks.append({"desc": task["desc"], "done": is_done})
+    st.session_state.temp_tasks = updated_tasks
+
+    if st.session_state.temp_tasks and st.button("🧹 清空所有任务"):
+        st.session_state.temp_tasks = []
+        st.rerun()
+
+    st.divider()
     
-    
-    
-    st.subheader("📝 今日打卡")
+    # 🚀 模块 2：每日随笔 + 统一提交表单
+    st.subheader("📝 今日总结")
+    # 把文本框和打卡数据放进同一个 form，保证一次性提交
     with st.form("study_form"):
-        lc_count = st.number_input("力扣刷题数", min_value=0, value=0, step=1)
-        study_time = st.number_input("学习时长 (分钟)", min_value=0, value=st.session_state.study_minutes, step=1)
-        status = st.selectbox("今日状态", ["good", "normal", "bad"], index=1)
+        daily_log = st.text_area("记录今日感悟、遇到的 Bug 或灵感", placeholder="今天有什么想记下来的？", height=100)
         
-        # 🚀 新增修正模式开关
-        is_overwrite = st.checkbox("🔄 开启修正模式 (勾选后将覆盖今日已有数据)", value=False)
+        st.write("---")
+        c_lc, c_time = st.columns(2)
+        lc_count = c_lc.number_input("力扣刷题数", min_value=0, value=0, step=1)
+        study_time = c_time.number_input("专注时长 (分)", min_value=0, value=st.session_state.study_minutes, step=1)
         
-        submitted = st.form_submit_button("💾 提交今日记录", use_container_width=True)
+        status = st.selectbox("今日状态评价", ["good", "normal", "bad"], index=1)
+        is_overwrite = st.checkbox("🔄 开启修正模式 (覆盖今日已有数据)", value=False)
+        
+        submitted = st.form_submit_button("💾 统一保存今日所有成果", use_container_width=True)
         
         if submitted:
-            # 将 is_overwrite 传入函数
+            # 💡 传入所有新参数
             is_completed = add_record(
                 leetcode_count=lc_count, 
                 study_minutes=study_time, 
                 status=status,
-                overwrite=is_overwrite # 核心改动
+                tasks=st.session_state.temp_tasks, # 存入任务列表
+                daily_log=daily_log,              # 存入随笔内容
+                overwrite=is_overwrite
             )
             
             if is_completed:
-                st.success("✅ 操作成功！数据已更新。")
+                st.success("✅ 保存成功！数据、任务与随笔已入库。")
                 st.balloons()
                 st.session_state.study_minutes = 0 
             else:
                 st.warning("⚠️ 数据已保存，但今日未达标哦。")
 
-# ========== 右侧：AI 对话系统 (双模智能) ==========
+# ========== 右侧：AI 对话系统 (保持原样) ==========
 with col2:
     st.subheader("🤖 智能伴学对话")
-    
-    # 渲染历史对话
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
             
-    # 接收用户输入
-    if prompt := st.chat_input("输入你的问题，或回复‘点评’..."):
+    if prompt := st.chat_input("输入你的问题..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
@@ -157,7 +161,7 @@ with col2:
                         result = qa_chain.invoke({"question": prompt})
                         response_text = result["answer"]
                     except Exception as e:
-                        response_text = f"🚨 知识库检索失败，请检查 API Key 或确认是否已上传文档。错误详情：{str(e)}"
+                        response_text = f"🚨 知识库检索失败：{str(e)}"
                 
                 st.markdown(response_text)
                 st.session_state.messages.append({"role": "assistant", "content": response_text})

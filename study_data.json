@@ -2,8 +2,15 @@
     "2026-03-19": {
         "date": "2026-03-19",
         "leetcode_count": 2,
-        "study_minutes": 240,
-        "status": "normal",
+        "study_minutes": 270,
+        "status": "normal | normal | normal | normal | normal | normal",
+        "tasks": [
+            {
+                "desc": "22",
+                "done": true
+            }
+        ],
+        "daily_log": "",
         "completed": true
     }
 }
