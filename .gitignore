@@ -1,0 +1,4 @@
+.env
+focus_env/
+__pycache__/
+chroma_db/
