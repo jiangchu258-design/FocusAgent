@@ -1,9 +1,9 @@
 {
     "2026-03-19": {
         "date": "2026-03-19",
-        "leetcode_count": 3,
-        "study_time": 60,
-        "status": "good",
+        "leetcode_count": 2,
+        "study_minutes": 240,
+        "status": "normal",
         "completed": true
     }
 }

@@ -40,31 +40,69 @@ col1, col2 = st.columns([1, 2])
 with col1:
     st.subheader("⏱️ 专注计时器")
     
-    # 定义回调函数，保证状态在 UI 渲染前就更新完毕
-    def start_timer():
+    # 1. 绝不重名的回调函数
+    def start_focus_timer():
         st.session_state.start_time = time.time()
         st.session_state.timer_running = True
         
-    def stop_timer():
+    def stop_focus_timer():
         if st.session_state.start_time is not None: 
             elapsed_secs = time.time() - st.session_state.start_time
             st.session_state.study_minutes += int(elapsed_secs // 60)
             st.session_state.timer_running = False
             st.session_state.start_time = None
 
+    # 2. 必须先渲染按钮
     btn_col1, btn_col2 = st.columns(2)
-    
-    # 通过 on_click 绑定回调函数
-    if btn_col1.button("▶️ 开始专注", disabled=st.session_state.timer_running, on_click=start_timer):
-        st.toast("🚀 计时开始，全神贯注！")
-        
-    if btn_col2.button("⏹ 结束专注", disabled=not st.session_state.timer_running, on_click=stop_timer):
-        st.success(f"专注结束！已记录 {st.session_state.study_minutes} 分钟。")
+    is_running = st.session_state.get('timer_running', False)
+    btn_col1.button("▶️ 开始专注", disabled=is_running, on_click=start_focus_timer, use_container_width=True)
+    btn_col2.button("⏹ 结束专注", disabled=not is_running, on_click=stop_focus_timer, use_container_width=True)
 
-    if st.session_state.timer_running:
-        st.info("🕒 计时中，专心致志！(点击结束停止)")
-        
+    # 3. 渲染高颜值动态时钟
+    timer_display = st.empty() 
+    if is_running:
+        elapsed = int(time.time() - st.session_state.start_time)
+        mins, secs = divmod(elapsed, 60)
+        # 💡 这里换成了渐变青色调，更有利于专注
+        timer_display.markdown(f"""
+            <div style="
+                text-align: center; 
+                padding: 30px; 
+                background: linear-gradient(135deg, #e0f2f1 0%, #e1f5fe 100%);
+                border-radius: 20px; 
+                margin-top: 15px;
+                box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+                border: 1px solid rgba(255,255,255,0.5);
+            ">
+                <h1 style="color: #006064; font-size: 60px; margin: 0; font-family: 'Helvetica Neue', sans-serif; letter-spacing: 2px;">
+                    {mins:02d}:{secs:02d}
+                </h1>
+                <p style="color: #00838f; margin-top: 10px; font-size: 16px; letter-spacing: 1px; opacity: 0.8;">
+                    ✨ 沉浸在知识的海洋中...
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+        time.sleep(1)
+        st.rerun()
+    else:
+        # 休息状态：更淡的灰色调
+        timer_display.markdown("""
+            <div style="
+                text-align: center; 
+                padding: 30px; 
+                background-color: #f8f9fa; 
+                border-radius: 20px; 
+                margin-top: 15px;
+                border: 1px solid #eee;
+            ">
+                <h1 style="color: #adb5bd; font-size: 60px; margin: 0; font-family: 'Helvetica Neue', sans-serif;">00:00</h1>
+                <p style="color: #adb5bd; margin-top: 10px; font-size: 16px;">☕ 蓄势待发，准备开启专注</p>
+            </div>
+        """, unsafe_allow_html=True)
+
     st.divider()
+    
+    
     
     st.subheader("📝 今日打卡")
     with st.form("study_form"):
@@ -72,14 +110,26 @@ with col1:
         study_time = st.number_input("学习时长 (分钟)", min_value=0, value=st.session_state.study_minutes, step=1)
         status = st.selectbox("今日状态", ["good", "normal", "bad"], index=1)
         
-        submitted = st.form_submit_button("💾 提交今日记录")
+        # 🚀 新增修正模式开关
+        is_overwrite = st.checkbox("🔄 开启修正模式 (勾选后将覆盖今日已有数据)", value=False)
+        
+        submitted = st.form_submit_button("💾 提交今日记录", use_container_width=True)
+        
         if submitted:
-            is_completed = add_record(lc_count, study_time, status)
+            # 将 is_overwrite 传入函数
+            is_completed = add_record(
+                leetcode_count=lc_count, 
+                study_minutes=study_time, 
+                status=status,
+                overwrite=is_overwrite # 核心改动
+            )
+            
             if is_completed:
-                st.success("✅ 打卡成功！Streak 已维持。")
+                st.success("✅ 操作成功！数据已更新。")
                 st.balloons()
+                st.session_state.study_minutes = 0 
             else:
-                st.warning("⚠️ 打卡成功，但由于（时长<30且未刷题），今日算作未完成！Streak 会断哦！")
+                st.warning("⚠️ 数据已保存，但今日未达标哦。")
 
 # ========== 右侧：AI 对话系统 (双模智能) ==========
 with col2:
